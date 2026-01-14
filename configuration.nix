@@ -10,24 +10,6 @@
       ./hardware-configuration.nix
     ];
 
-  #mount
-  fileSystems."/media/win11" = {
-    device = "/dev/disk/by-uuid/B4D6BBACD6BB6D6C";
-    fsType = "ntfs-3g";
-    options = [ "nofail" "x-systemd.device-timeout=5s" "uid=1000" "gid=100" "umask=0022"];
-  };
-  fileSystems."/media/school" = {
-    device = "/dev/disk/by-uuid/A094DAFE94DAD5BE";
-    fsType = "ntfs-3g";                
-    options = [ "nofail" "x-systemd.device-timeout=5s" "uid=1000" "gid=100" "umask=0022"];
-  };
-
-  #swap
-    swapDevices = [{
-    device = "/swapfile";
-    size = 16 * 1024; # 16GB
-  }];
-
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -42,19 +24,8 @@
   # Enable networking
   networking.networkmanager.enable = true;
 
-  # Enable network manager applet
-  programs.nm-applet.enable = true;
-
   # Set your time zone.
-  security.rtkit.enable = true;  
-  services.chrony.enable = true; 
-  services.automatic-timezoned.enable = true;
-  services.tzupdate.enable = true;
-
-  # fingerprint sensor
-  services.fprintd.enable = true;
-  services.fprintd.tod.enable = true;
-  services.fprintd.tod.driver = pkgs.libfprint-2-tod1-goodix;
+  time.timeZone = "America/Guayaquil";
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
@@ -71,117 +42,98 @@
     LC_TIME = "en_US.UTF-8";
   };
 
-   
-  # Enable the X11 windowing system.
-  services.xserver.enable = true;
-  services.xserver.displayManager.startx.enable = true;
-  # Enable the LXQT & KDE Desktop Environment.
-	#LXQT
-    services.xserver.displayManager.lightdm.enable = false;
-    services.xserver.desktopManager.lxqt.enable = false;
-        #KDE
-    services.xserver.desktopManager.plasma5.enable = false;
-    services.displayManager.sddm.enable = false;
+  #Increase the limits for the login session (PAM)
+  #security.pam.loginLimits = [
+  #  { domain = "*"; type = "soft"; item = "nofile"; value = "65536"; }
+  # { domain = "*"; type = "hard"; item = "nofile"; value = "1048576"; }
+  #];
 
-  # Configure keymap in wayland
-  services.xserver = {
-  	xkb = {
-    		layout = "us,es";
-    		variant = "";        
-    		options = "grp:win_space";
-  	};
+  # 2. Increase the limits for all systemd services (including Waybar if it's a service)
+  #systemd.extraConfig = "DefaultLimitNOFILE=65536";
+  
+  # 3. Specifically for user services (like Waybar/Pipewire)
+  #systemd.user.extraConfig = "DefaultLimitNOFILE=65536";
+
+  # Mount
+
+  # Mount Windows 11
+  fileSystems."/media/win11" = {
+    device = "/dev/disk/by-uuid/E08663D28663A7AC";
+    fsType = "ntfs-3g";
+    options = [ "nofail" "x-systemd.device-timeout=5s" "uid=1000" "gid=100" "umask=0022"];
   };
 
-  # when da lid is shut
-  services.logind.lidSwitch = "lock"; # or "poweroff", "suspend", or "ignore" or "logout"
+  # Hibernation
+  boot.kernelParams = ["resume_offset=37904384"];
 
-  services.logind.extraConfig = ''
-       HandlePowerKey=ignore
-    '';
+  boot.resumeDevice = "/dev/disk/by-uuid/47cffad2-960d-4014-b9f5-5c6610f82191";
 
+  powerManagement.enable = true;
 
-  # Enable CUPS to print documents.
-  services.printing.enable = true;
+  swapDevices = [{
+    device = "/var/lib/swapfile";
+    size = 32 * 1024; # 32GB in MB
+    }];
 
-  # bluetooth
-  hardware.bluetooth.enable = true;
-  services.blueman.enable = true;
-  services.dbus.enable = true;
-  environment.etc."wireplumber/bluetooth.lua.d/50-bluez-config.lua".text = ''
-  bluez_monitor.properties = {
-    ["bluez5.enable-msbc"] = true,
-    ["bluez5.enable-hw-volume"] = true,
-    ["bluez5.codecs"] = { "sbc", "aac", "ldac", "aptx", "aptx-hd", "msbc" },
-    }
-  '';
+  # Configure keymap in X11
+  services.xserver.xkb = {
+    layout = "us";
+    variant = "";
+  };
 
-
-  # Enable sound with pipewire.
-  services.pulseaudio.enable = false;
   services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
-    # If you want to use JACK applications, uncomment this
-    jack.enable = true;
-    wireplumber.enable = true;
+    	enable = true;
+	alsa.enable = true;
+    	alsa.support32Bit = true;
+    	pulse.enable = true;
+	# If you want to use JACK applications, uncomment this
+   	jack.enable = true;
+    	wireplumber.enable = true;
     
     # use the example session manager (no others are packaged yet so this is enabled by default,
     # no need to redefine it in your config for now)
     #media-session.enable = true;
   };
 
-  
-  # Enable touchpad support (enabled default in most desktopManager).
-  # services.xserver.libinput.enable = true;
-
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.jax = {
     isNormalUser = true;
     description = "jax";
     extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [
-    #  thunderbird
-    ];
+    packages = with pkgs; [];
   };
 
-  # Install firefox.
-  programs.firefox.enable = true;
-
-  #allow close source and paid programs 
+  # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-        hyprland
-	hyprlock #lockscreen  
-        kitty    
-        rofi-wayland
-	swaynotificationcenter
-	waybar   
+	hyprlock #lockscreen
+        hyprlandPlugins.hyprspace
+	kitty
+        rofi
+	dunst
+	waybar
+	hyprpanel
+	ags
 	networkmanager
 	networkmanagerapplet
-	eww
-	brightnessctl   
+	brightnessctl
         firefox
 	google-chrome
-	fastfetch
-	ntfs3g
-	git
+	fastfetch 
+	ntfs3g #writing on ntfs
+	git ##Github command
 	font-manager
- 	pavucontrol #audio
-	pulseaudio #audio
+	pavucontrol #audio
 	playerctl
 	xkeyboard_config
-	fprintd #fingerprint
-	ulauncher #----#search
 	gparted #------#disk manager
 	yazi #---------------#file manager
         nemo-with-extensions #file manager
-	libsForQt5.okular #--------------#PDF viewer
-	libsForQt5.kate #----------------#text editor
+	kdePackages.okular #--------------#PDF viewer
+	kdePackages.kate #----------------#text editor
 	zip #----------------------------#zip
 	unzip #--------------------------#unzip
 	qimgv #--------------------------#image viewer
@@ -191,6 +143,7 @@
 	grim #---------------------------#screenshots
 	btop #---------#system manger
 	swww #---------#background image
+	swaybg #-------#background image
 	nwg-look #-----#icon logo things 
 	bibata-cursors #---------------#cursor
 	dracula-icon-theme #-----------#icon
@@ -199,29 +152,20 @@
 	vscode-fhs ##MS code
 	wpsoffice ##excel
 	protonvpn-gui ##VPN
+	steam #----#games
 	ncmpcpp #--#music
 	mdp #------#music
 	spotify #--#music
-	qalculate-gtk ##Calculator	
+	qalculate-gtk ##Calculator
 
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   #  wget
   ];
 
-  # fonts, but more
   fonts.packages = with pkgs; [
-	#	(nerdfonts.override { fonts = [ "materialicons" "fontlogos" ]; })
-	#	font-logos
-	#	material-icons
 	material-design-icons
 	nerd-fonts.symbols-only
-   	];
-
-  environment.variables = {
-	XCURSOR_THEME = "Bibata-Modern-Classic";
-	XCURSOR_SIZE = "20";
-  };
-
+	];
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
@@ -230,34 +174,42 @@
   #   enable = true;
   #   enableSSHSupport = true;
   # };
- 
+
   programs = {
-    hyprland = {
-      enable = true;
-      xwayland.enable = true;
-    };
+	hyprland = {
+		enable = true;
+		xwayland.enable = true;
+	};
+	
+	steam = {
+		enable = true;
+		 remotePlay.openFirewall = true; # Opens ports for Remote Play
+  		dedicatedServer.openFirewall = true; # Opens ports for dedicated servers
+	};
 
-    waybar = {
-      enable = true;
-      package = pkgs.waybar.overrideAttrs (oldAttrs: {
-        mesonFlags = oldAttrs.mesonFlags ++ [ "-Dexperimental=true" ];
-      });
-    };
+#	waybar = {
+#		enable = true;
+#		package = pkgs.waybar.overrideAttrs (oldAttrs: {
+#			mesonFlags = oldAttrs.mesonFlags ++ [ "-Dexperimental=true" ];
+#		});
+#	};
   };
 
-  # Enable greetd (minimal login manager)
-  services.greetd = {
-    enable = true;
-    settings = {
-      default_session = {
-        # Hyprland direct launch
-        command = "Hyprland";
-        user = "jax"; # Replace with your actual user
-      };
-    };
+  # Auto Start Hyperland
+  services = {
+	greetd = {
+    		enable = true;
+    		settings = {
+      			default_session = {
+        		# Hyprland direct launch
+        			command = "Hyprland";
+        			user = "jax";
+      				};
+    			};
+  		};
+  power-profiles-daemon.enable = true;
   };
-
-  #list services that you want to enable:
+  # List services that you want to enable:
 
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
@@ -274,6 +226,6 @@
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "25.05"; # Did you read the comment?
+  system.stateVersion = "25.11"; # Did you read the comment?
 
 }
