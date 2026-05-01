@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   imports =
@@ -81,6 +81,21 @@
     variant = "";
   };
 
+  # bluetooth
+  hardware.bluetooth.enable = true;
+  services.blueman.enable = true;
+  services.dbus.enable = true;
+  environment.etc."wireplumber/bluetooth.lua.d/50-bluez-config.lua".text = ''
+  bluez_monitor.properties = {
+    ["bluez5.enable-msbc"] = true,
+    ["bluez5.enable-hw-volume"] = true,
+    ["bluez5.codecs"] = { "sbc", "aac", "ldac", "aptx", "aptx-hd", "msbc" },
+    }
+  '';
+
+  # Fingerprint
+  services.fprintd.enable = true;
+
   services.pipewire = {
     	enable = true;
 	alsa.enable = true;
@@ -103,6 +118,11 @@
     packages = with pkgs; [];
   };
 
+#  home-manager.users.jax = { pkgs, ... }: {
+#    home.packages = [ pkgs.atool pkgs.httpie ];
+#    home.stateVersion = "25.11";
+#  };
+
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
@@ -110,12 +130,14 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
 	hyprlock #lockscreen
-        hyprlandPlugins.hyprspace
+        #inputs.hyprspace.packages.${pkgs.system}.Hyprspace
+	#inputs.hyprspace.packages.${pkgs.system}.Hyprexpo
 	kitty
         rofi
 	dunst
 	waybar
 	hyprpanel
+	ironbar
 	ags
 	networkmanager
 	networkmanagerapplet
@@ -127,8 +149,8 @@
 	git ##Github command
 	font-manager
 	pavucontrol #audio
-	playerctl
-	xkeyboard_config
+	playerctl ##music controler
+	xkeyboard_config ##changing lanuages
 	gparted #------#disk manager
 	yazi #---------------#file manager
         nemo-with-extensions #file manager
@@ -157,6 +179,14 @@
 	mdp #------#music
 	spotify #--#music
 	qalculate-gtk ##Calculator
+	libgtop
+	dart-sass
+	wl-clipboard
+	upower
+	gvfs
+	gtksourceview3
+	matugen
+	pywal
 
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   #  wget
@@ -207,6 +237,9 @@
       				};
     			};
   		};
+	upower = {
+		enable = true;
+	};
   power-profiles-daemon.enable = true;
   };
   # List services that you want to enable:
